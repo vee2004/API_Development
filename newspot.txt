@@ -1,0 +1,99 @@
+public class DepartmentQuotaDto
+{
+    public int MGID { get; set; }
+    public int MGroupTypeID { get; set; }
+    public string GroupTypeName { get; set; } = string.Empty;
+    public string GroupName { get; set; } = string.Empty;
+    public int Level { get; set; }
+    public int ParentMGID { get; set; }
+    public int HeadCount { get; set; }
+    public int IssuedCount { get; set; }
+    public int PipelineCount { get; set; }
+    public int BalanceCount { get; set; }
+    public int YearOfIssue { get; set; }
+}
+
+
+public class QuotaRepository : IQuotaRepository
+{
+    private readonly string _connectionString;
+
+    public QuotaRepository(IConfiguration configuration)
+    {
+        _connectionString = configuration.GetConnectionString("DefaultConnection");
+    }
+
+    public async Task<List<DepartmentQuotaDto>> GetDepartmentWiseQuotaAsync(int mEmpId, int year)
+    {
+        var quotas = new List<DepartmentQuotaDto>();
+
+        using (var con = new SqlConnection(_connectionString))
+        using (var cmd = new SqlCommand("SpotAward_Get_Department_Wise_Quota_Details", con))
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@MEmpID", mEmpId);
+            cmd.Parameters.AddWithValue("@Year", year);
+
+            await con.OpenAsync();
+            using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    quotas.Add(new DepartmentQuotaDto
+                    {
+                        MGID = reader.GetInt32(reader.GetOrdinal("MGID")),
+                        MGroupTypeID = reader.GetInt32(reader.GetOrdinal("MGroupTypeID")),
+                        GroupTypeName = reader["GroupTypeName"].ToString() ?? "",
+                        GroupName = reader["GroupName"].ToString() ?? "",
+                        Level = reader.GetInt32(reader.GetOrdinal("Level")),
+                        ParentMGID = reader.GetInt32(reader.GetOrdinal("ParentMGID")),
+                        HeadCount = reader.GetInt32(reader.GetOrdinal("HeadCount")),
+                        IssuedCount = reader.IsDBNull(reader.GetOrdinal("IssuedCount")) ? 0 : reader.GetInt32(reader.GetOrdinal("IssuedCount")),
+                        PipelineCount = reader.IsDBNull(reader.GetOrdinal("PipelineCount")) ? 0 : reader.GetInt32(reader.GetOrdinal("PipelineCount")),
+                        BalanceCount = reader.IsDBNull(reader.GetOrdinal("BalanceCount")) ? 0 : reader.GetInt32(reader.GetOrdinal("BalanceCount")),
+                        YearOfIssue = reader.IsDBNull(reader.GetOrdinal("YearOfIssue")) ? year : reader.GetInt32(reader.GetOrdinal("YearOfIssue"))
+                    });
+                }
+            }
+        }
+
+        return quotas;
+    }
+}
+
+
+
+public class QuotaService : IQuotaService
+{
+    private readonly IQuotaRepository _repository;
+
+    public QuotaService(IQuotaRepository repository)
+    {
+        _repository = repository;
+    }
+
+    public async Task<List<DepartmentQuotaDto>> LoadQuotaAsync(int mEmpId, int? year)
+    {
+        var finalYear = year ?? DateTime.Now.Year;
+        return await _repository.GetDepartmentWiseQuotaAsync(mEmpId, finalYear);
+    }
+}
+
+
+
+[HttpGet("quota")]
+public async Task<IActionResult> GetDepartmentWiseQuota([FromQuery] int mEmpId, [FromQuery] int? year = null)
+{
+    try
+    {
+        var data = await _service.LoadQuotaAsync(mEmpId, year);
+        if (data == null || data.Count == 0)
+            return NotFound($"No quota data found for MEmpID {mEmpId} and Year {(year ?? DateTime.Now.Year)}");
+
+        return Ok(data);
+    }
+    catch (Exception ex)
+    {
+        return StatusCode(500, $"Internal server error: {ex.Message}");
+    }
+}
