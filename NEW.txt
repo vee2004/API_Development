@@ -1,0 +1,110 @@
+public class QuotaDetailsModel
+{
+    public int MGID { get; set; }
+    public int MGroupTypeID { get; set; }
+    public string GroupTypeName { get; set; }
+    public string GroupName { get; set; }
+    public int Level { get; set; }
+    public int ParentMGID { get; set; }
+    public int HeadCount { get; set; }
+    public int AwardsAllowed { get; set; }
+    public int IssuedCount { get; set; }
+    public int BaseIssuedCount { get; set; }
+}
+
+
+public List<QuotaDetailsModel> GetDepartmentWiseQuotaDetails(int empId, int year)
+{
+    List<QuotaDetailsModel> quotaList = new List<QuotaDetailsModel>();
+
+    using (SqlConnection conn = new SqlConnection(_connectionString))
+    {
+        using (SqlCommand cmd = new SqlCommand("SpotAward_Get_Department_Wise_Quota_Details", conn))
+        {
+            cmd.CommandType = CommandType.StoredProcedure;
+            cmd.Parameters.AddWithValue("@MEmpID", empId);
+            cmd.Parameters.AddWithValue("@year", year);
+
+            conn.Open();
+            using (SqlDataReader reader = cmd.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    quotaList.Add(new QuotaDetailsModel
+                    {
+                        MGID = reader.GetInt32(reader.GetOrdinal("MGID")),
+                        MGroupTypeID = reader.GetInt32(reader.GetOrdinal("MGroupTypeID")),
+                        GroupTypeName = reader.GetString(reader.GetOrdinal("GroupTypeName")),
+                        GroupName = reader.GetString(reader.GetOrdinal("GroupName")),
+                        Level = reader.GetInt32(reader.GetOrdinal("Level")),
+                        ParentMGID = reader.GetInt32(reader.GetOrdinal("ParentMGID")),
+                        HeadCount = reader.GetInt32(reader.GetOrdinal("HeadCount")),
+                        AwardsAllowed = reader.GetInt32(reader.GetOrdinal("AwardsAllowed")),
+                        IssuedCount = reader.GetInt32(reader.GetOrdinal("IssuedCount")),
+                        BaseIssuedCount = reader.GetInt32(reader.GetOrdinal("BaseIssuedCount"))
+                    });
+                }
+            }
+        }
+    }
+
+    return quotaList;
+}
+
+
+
+public class SpotAwardService
+{
+    private readonly SpotAwardDataAccess _dataAccess;
+
+    public SpotAwardService(SpotAwardDataAccess dataAccess)
+    {
+        _dataAccess = dataAccess;
+    }
+
+    public List<QuotaDetailsModel> GetDepartmentWiseQuotaDetails(int empId, int year)
+    {
+        return _dataAccess.GetDepartmentWiseQuotaDetails(empId, year);
+    }
+}
+
+
+
+public class SpotAwardBusinessLogic
+{
+    private readonly SpotAwardService _service;
+
+    public SpotAwardBusinessLogic(SpotAwardService service)
+    {
+        _service = service;
+    }
+
+    public List<QuotaDetailsModel> GetDepartmentWiseQuotaDetails(int empId, int year)
+    {
+        if (year == 0)
+            year = DateTime.Now.Year;  // default current year
+
+        return _service.GetDepartmentWiseQuotaDetails(empId, year);
+    }
+}
+
+
+
+[ApiController]
+[Route("api/[controller]")]
+public class SpotAwardController : ControllerBase
+{
+    private readonly SpotAwardBusinessLogic _businessLogic;
+
+    public SpotAwardController(SpotAwardBusinessLogic businessLogic)
+    {
+        _businessLogic = businessLogic;
+    }
+
+    [HttpGet("GetQuotaDetails")]
+    public IActionResult GetQuotaDetails(int empId, int? year)
+    {
+        var result = _businessLogic.GetDepartmentWiseQuotaDetails(empId, year ?? DateTime.Now.Year);
+        return Ok(result);
+    }
+}
