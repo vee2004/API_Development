@@ -1,0 +1,157 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Data;
+using System.Data.SqlClient;
+using SBPASystem.Models;
+using SBPASystem.DataAccess;
+
+namespace SBPASystem.BusinessLogic
+{
+    public class SBPABusinessLogic
+    {
+        private readonly SBPADataAccess _dataAccess;
+
+        public SBPABusinessLogic(SBPADataAccess dataAccess)
+        {
+            _dataAccess = dataAccess;
+        }
+
+        // The private validation method that checks all business rules.
+        private (bool IsValid, string Message) ValidateForm(
+            MasterInfo abstractInfo,
+            string stateKeyName,
+            string actionKeyName,
+            List<Attachment> attachments,
+            List<Reviewer> reviewers,
+            List<ReviewCriteria> reviews)
+        {
+            // --- Validations for the "Author" state and common fields ---
+            if (stateKeyName == "Author")
+            {
+                if (abstractInfo.Category <= 0)
+                    return (false, "Enter Type");
+                if (string.IsNullOrWhiteSpace(abstractInfo.Title))
+                    return (false, "Enter Title");
+                if (abstractInfo.TechAreaID <= 0)
+                    return (false, "Select the Tech Area");
+                if (abstractInfo.SubTechAreaID <= 0)
+                    return (false, "Select the Sub Tech Area");
+                if (abstractInfo.CID <= 0)
+                    return (false, "Select the Commercialization Status");
+                if (abstractInfo.PIID <= 0)
+                    return (false, "Select the Patent Info");
+                if (attachments == null || attachments.Count == 0)
+                    return (false, "Attachment is mandatory");
+            }
+
+            // --- Validations for the "Coordinator" state ---
+            if (stateKeyName == "Coordinator")
+            {
+                if (actionKeyName == "Approve")
+                {
+                    // Check for a minimum of 1 completed review
+                    int completed = reviews?.Count(r => r.ReviewerID == 32) ?? 0;
+                    if (completed < 1)
+                        return (false, "Minimum 1 reviews need to be Completed for Approval");
+                }
+
+                if (actionKeyName == "SendToReview")
+                {
+                    if (reviewers == null || reviewers.Count == 0)
+                        return (false, "No Reviewer Added");
+
+                    // Check if any reviewers still need a transaction created
+                    bool hasUnsentReviewers = reviewers?.Any(r => r.ReviewStatus == "Not Initiated") ?? false;
+                    if (!hasUnsentReviewers)
+                        return (false, "Already Sent for review");
+                }
+
+                if (actionKeyName == "Restart" || actionKeyName == "Reject")
+                {
+                    // Correctly checks the 'reviewers' list for the IsWithdrawn status
+                    bool allWithdrawn = reviewers?.All(r => r.IsWithdrawn) ?? false;
+                    if (!allWithdrawn)
+                        return (false, "Withdraw all reviews initiated before Restart / Reject");
+                }
+            }
+
+            // --- Validations for the "Reviewer" state ---
+            if (stateKeyName == "Reviewer")
+            {
+                if (reviews == null || !reviews.Any())
+                    return (false, "Review content is required");
+            }
+
+            // If all checks pass
+            return (true, "Validation passed");
+        }
+
+        public (bool Success, string Message, int Id) SaveAbstract(
+            MasterInfo abstractInfo,
+            string stateKeyName,
+            string actionKeyName,
+            List<Attachment> attachments,
+            List<Reviewer> reviewers,
+            List<ReviewCriteria> reviews)
+        {
+            var validation = ValidateForm(abstractInfo, stateKeyName, actionKeyName, attachments, reviewers, reviews);
+            if (!validation.IsValid)
+                return (false, validation.Message, 0);
+
+            try
+            {
+                int newId = _dataAccess.InsertUpdateAbstract(abstractInfo);
+
+                // Additional logic to insert attachments, reviewers, etc.
+                if (attachments != null)
+                {
+                    // _dataAccess.InsertAttachments(newId, attachments);
+                }
+
+                return (true, "Abstract saved successfully.", newId);
+            }
+            catch (Exception ex)
+            {
+                return (false, "Error saving abstract: " + ex.Message, 0);
+            }
+        }
+
+        // Other methods remain...
+        public (bool Success, string Message, int Id) InsertUpdateAbstract(MasterInfo abstractInfo)
+        {
+            try
+            {
+                int newId = _dataAccess.InsertUpdateAbstract(abstractInfo);
+                return (true, "Abstract saved successfully.", newId);
+            }
+            catch (Exception ex)
+            {
+                return (false, "Error saving abstract: " + ex.Message, 0);
+            }
+        }
+
+        public void InsertReviewer(int abstractId, int reviewerId)
+        {
+            _dataAccess.InsertReviewer(abstractId, reviewerId);
+        }
+
+        public void UpdateReviewCriteria(List<ReviewCriteria> reviews)
+        {
+            _dataAccess.UpdateReviewCriteria(reviews);
+        }
+
+        public void UpdateWithdrawalStatus(int reviewId)
+        {
+            _dataAccess.UpdateWithdrawalStatus(reviewId);
+        }
+
+        public IEnumerable<TechArea> GetTechAreas() => _dataAccess.GetAllTechAreas();
+        public IEnumerable<SubTechArea> GetSubTechAreas(int techAreaId) => _dataAccess.GetSubTechAreas(techAreaId);
+        public IEnumerable<Commercialization> GetCommercializationList() => _dataAccess.GetCommercializationList();
+        public IEnumerable<PatentInfo> GetPatentInfo() => _dataAccess.GetPatentInfo();
+        public IEnumerable<MasterInfo> GetMasterInfo(int sbpaAbstractId, int mEmpId) => _dataAccess.GetMasterInfo(sbpaAbstractId, mEmpId);
+        public IEnumerable<Reviewer> GetReviewers(int sbpaAbstractId, int category) => _dataAccess.GetReviewers(sbpaAbstractId, category);
+        public IEnumerable<Attachment> GetAttachments(int sbpaAbstractId, int category) => _dataAccess.GetAttachments(sbpaAbstractId, category);
+    }
+}

@@ -1,0 +1,168 @@
+using System;
+using System.Collections.Generic;
+using System.Data;
+using System.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
+using SBPASystem.Models;
+
+namespace SBPASystem.DataAccess
+{
+    public class SBPADataAccess
+    {
+        private readonly string _connectionString;
+
+        public SBPADataAccess(IConfiguration config)
+        {
+            _connectionString = config.GetConnectionString("DefaultConnection");
+        }
+
+        private IEnumerable<T> ExecuteReader<T>(SqlCommand cmd, Func<SqlDataReader, T> map)
+        {
+            var result = new List<T>();
+            using (var conn = new SqlConnection(_connectionString))
+            {
+                cmd.Connection = conn;
+                conn.Open();
+                using (var reader = cmd.ExecuteReader())
+                {
+                    while (reader.Read())
+                        result.Add(map(reader));
+                }
+            }
+            return result;
+        }
+
+        private void ExecuteNonQuery(SqlCommand cmd)
+        {
+            using (var conn = new SqlConnection(_connectionString))
+            {
+                cmd.Connection = conn;
+                conn.Open();
+                cmd.ExecuteNonQuery();
+            }
+        }
+
+        public int InsertUpdateAbstract(MasterInfo abstractInfo)
+        {
+            var cmd = new SqlCommand("SBPAAbstract_InsertUpdateLocalDB") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SBPAAbstractID", abstractInfo.SBPAAbstractID);
+            cmd.Parameters.AddWithValue("@MEmpID", abstractInfo.InitiatorEmpID);
+            cmd.Parameters.AddWithValue("@Title", abstractInfo.Title);
+            cmd.Parameters.AddWithValue("@TechAreaID", abstractInfo.TechAreaID);
+            cmd.Parameters.AddWithValue("@SubTechAreaID", abstractInfo.SubTechAreaID);
+            cmd.Parameters.AddWithValue("@CID", abstractInfo.CID);
+            cmd.Parameters.AddWithValue("@DevPeriod", abstractInfo.DevPeriod);
+            cmd.Parameters.AddWithValue("@PIID", abstractInfo.PIID);
+            cmd.Parameters.AddWithValue("@ForumName", abstractInfo.ForumName);
+            cmd.Parameters.AddWithValue("@AcceptanceDate", abstractInfo.AcceptanceDate);
+            cmd.Parameters.AddWithValue("@SRList", abstractInfo.SRList);
+            cmd.Parameters.AddWithValue("@ExternalAwards", abstractInfo.ExternalAwards);
+            cmd.Parameters.AddWithValue("@Category", abstractInfo.Category);
+
+            var outputParam = new SqlParameter("@SBPAAbstractIDOutput", SqlDbType.Int)
+            {
+                Direction = ParameterDirection.Output
+            };
+            cmd.Parameters.Add(outputParam);
+
+            ExecuteNonQuery(cmd);
+            return (int)outputParam.Value;
+        }
+
+        public void InsertReviewer(int sbpaAbstractId, int reviewerWmpId)
+        {
+            var cmd = new SqlCommand("SBPAAbstract_InsertReviewerList") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SBPAAbstractID", sbpaAbstractId);
+            cmd.Parameters.AddWithValue("@ReviewerWmpID", reviewerWmpId);
+            ExecuteNonQuery(cmd);
+        }
+
+        public void UpdateReviewCriteria(List<ReviewCriteria> reviews)
+        {
+            foreach (var review in reviews)
+            {
+                var cmd = new SqlCommand("SBPAAbstract_UpdateReviewCriteriaInfo") { CommandType = CommandType.StoredProcedure };
+                cmd.Parameters.AddWithValue("@ReviewID", review.ReviewerID); // Assuming ReviewID maps to ReviewerID
+                cmd.Parameters.AddWithValue("@ReviewCriteriaID", review.ReviewCriteriaID);
+                cmd.Parameters.AddWithValue("@Percentage", review.Percentage);
+                cmd.Parameters.AddWithValue("@Remark", review.Remark ?? (object)DBNull.Value);
+                ExecuteNonQuery(cmd);
+            }
+        }
+
+        public void UpdateWithdrawalStatus(int reviewId)
+        {
+            var cmd = new SqlCommand("SBPAAbstract_UpdateIsWithdrawn") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@ReviewID", reviewId);
+            ExecuteNonQuery(cmd);
+        }
+
+        public IEnumerable<TechArea> GetAllTechAreas()
+        {
+            var cmd = new SqlCommand("SBPAAbstract_GetAllTechArea") { CommandType = CommandType.StoredProcedure };
+            return ExecuteReader(cmd, r => new TechArea { TechAreaID = r.GetInt32(r.GetOrdinal("TechAreaID")), Name = r["Name"].ToString() });
+        }
+
+        public IEnumerable<SubTechArea> GetSubTechAreas(int techAreaId)
+        {
+            var cmd = new SqlCommand("SBPAAbstract_GetSubTechAreaByID") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@TechAreaID", techAreaId);
+            return ExecuteReader(cmd, r => new SubTechArea { SubTechAreaID = r.GetInt32(r.GetOrdinal("SubTechAreaID")), TechAreaID = techAreaId, Name = r["Name"].ToString() });
+        }
+
+        public IEnumerable<Commercialization> GetCommercializationList()
+        {
+            var cmd = new SqlCommand("SBPAAbstract_GetAllCommercializationList") { CommandType = CommandType.StoredProcedure };
+            return ExecuteReader(cmd, r => new Commercialization
+            {
+                CID = r.GetInt32(r.GetOrdinal("CID")), // Corrected to CID
+                CommercializationType = r["CommercializationType"].ToString() // Corrected to CommercializationType
+            });
+        }
+
+        public IEnumerable<PatentInfo> GetPatentInfo()
+        {
+            var cmd = new SqlCommand("SBPAAbstract_GetAllPatentInfo") { CommandType = CommandType.StoredProcedure };
+            return ExecuteReader(cmd, r => new PatentInfo
+            {
+                PIID = r.GetInt32(r.GetOrdinal("PIID")), // Corrected to PIID
+                PatentType = r["PatentType"].ToString() // Corrected to PatentType
+            });
+        }
+
+        public IEnumerable<MasterInfo> GetMasterInfo(int sbpaAbstractId, int mEmpId)
+        {
+            var cmd = new SqlCommand("SBPAAbstract_GetAllInfoByMasterID") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SBPAAbstractID", sbpaAbstractId);
+            cmd.Parameters.AddWithValue("@MEmpID", mEmpId);
+
+            // Correct mapping function to return all relevant fields
+            return ExecuteReader(cmd, r => new MasterInfo
+            {
+                SBPAAbstractID = r.GetInt32(r.GetOrdinal("SBPAAbstractID")),
+                InitiatorEmpID = r.GetInt32(r.GetOrdinal("MEmpID")),
+                Title = r["Title"].ToString(),
+                TechAreaID = r.GetInt32(r.GetOrdinal("TechAreaID")),
+                SubTechAreaID = r.GetInt32(r.GetOrdinal("SubTechAreaID")),
+                Category = r.GetInt32(r.GetOrdinal("Category")),
+                // ... and any other columns returned by the stored procedure
+            });
+        }
+
+        public IEnumerable<Reviewer> GetReviewers(int sbpaAbstractId, int category)
+        {
+            var cmd = new SqlCommand("SBPAAbstract_GetReviewersByMasterID") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SBPAAbstractID", sbpaAbstractId);
+            cmd.Parameters.AddWithValue("@Category", category);
+            return ExecuteReader(cmd, r => new Reviewer { ReviewerID = r.GetInt32(r.GetOrdinal("ReviewerID")), Name = r["Name"].ToString() , IsWithdrawn = r.GetBoolean(r.GetOrdinal("IsWithdrawn")) });
+        }
+
+        public IEnumerable<Attachment> GetAttachments(int sbpaAbstractId, int category)
+        {
+            var cmd = new SqlCommand("SBPAAbstract_GetAttachmentInfo") { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddWithValue("@SBPAAbstractID", sbpaAbstractId);
+            cmd.Parameters.AddWithValue("@Category", category);
+            return ExecuteReader(cmd, r => new Attachment { AttachmentID = r.GetInt32(r.GetOrdinal("AttachmentID")), SBPAAbstractID = sbpaAbstractId, FileName = r["FileName"].ToString(), FileUrl = r["FileUrl"].ToString() });
+        }
+    }
+}

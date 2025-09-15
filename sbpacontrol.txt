@@ -1,0 +1,103 @@
+using Microsoft.AspNetCore.Mvc;
+using SBPASystem.Models;
+using SBPASystem.Services;
+using System.Collections.Generic;
+
+namespace SBPASystem.Controllers
+{
+    [ApiController]
+    [Route("api/[controller]")]
+    public class SBPAController : ControllerBase
+    {
+        private readonly SBPAService _service;
+
+        public SBPAController(SBPAService service)
+        {
+            _service = service;
+        }
+
+        // POST: Insert or Update a full abstract using a single request model
+        // This endpoint handles the entire "Save Abstract" workflow.
+        [HttpPost("abstract/save")]
+        public IActionResult SaveAbstract([FromBody] SaveAbstractRequest request)
+        {
+            var result = _service.SaveAbstract(
+                request.AbstractInfo,
+                request.StateKeyName,
+                request.ActionKeyName,
+                request.Attachments,
+                request.Reviewers,
+                request.Reviews
+            );
+
+            if (!result.Success)
+            {
+                return BadRequest(result.Message);
+            }
+            return Ok(result.Message);
+        }
+
+        // --- Endpoints for all 11 stored procedures as requested ---
+
+        // POST: Inserts or updates an abstract record (direct mapping)
+        [HttpPost("abstract/crud")]
+        public IActionResult InsertUpdateAbstract([FromBody] MasterInfo abstractInfo)
+        {
+            var result = _service.InsertUpdateAbstract(abstractInfo);
+            if (!result.Success) return BadRequest(result.Message);
+            return Ok(result);
+        }
+
+        // POST: Adds a new reviewer to an abstract
+        [HttpPost("reviewer/add")]
+        public IActionResult InsertReviewer([FromQuery] int abstractId, [FromQuery] int reviewerId)
+        {
+            _service.InsertReviewer(abstractId, reviewerId);
+            return Ok("Reviewer added successfully.");
+        }
+
+        // POST: Updates the criteria for a review
+        [HttpPost("review/update")]
+        public IActionResult UpdateReviewCriteria([FromBody] List<ReviewCriteria> reviews)
+        {
+            _service.UpdateReviewCriteria(reviews);
+            return Ok("Review criteria updated successfully.");
+        }
+
+        // POST: Marks a review as withdrawn
+        [HttpPost("review/withdraw")]
+        public IActionResult WithdrawReview([FromQuery] int reviewId)
+        {
+            _service.UpdateWithdrawalStatus(reviewId);
+            return Ok("Review withdrawn successfully.");
+        }
+
+        // GET: All Tech Areas
+        [HttpGet("techareas")]
+        public IActionResult GetTechAreas() => Ok(_service.GetTechAreas());
+
+        // GET: Sub Tech Areas by Tech Area ID
+        [HttpGet("subtechareas/{techAreaId}")]
+        public IActionResult GetSubTechAreas(int techAreaId) => Ok(_service.GetSubTechAreas(techAreaId));
+
+        // GET: Commercialization List
+        [HttpGet("commercialization")]
+        public IActionResult GetCommercializationList() => Ok(_service.GetCommercializationList());
+
+        // GET: Patent Info List
+        [HttpGet("patents")]
+        public IActionResult GetPatentInfo() => Ok(_service.GetPatentInfo());
+
+        // GET: Master Info by Abstract and Employee ID
+        [HttpGet("master/{abstractId}/{empId}")]
+        public IActionResult GetMasterInfo(int abstractId, int empId) => Ok(_service.GetMasterInfo(abstractId, empId));
+
+        // GET: Reviewers by Abstract ID and Category
+        [HttpGet("reviewers/{abstractId}/{category}")]
+        public IActionResult GetReviewers(int abstractId, int category) => Ok(_service.GetReviewers(abstractId, category));
+
+        // GET: Attachments by Abstract ID and Category
+        [HttpGet("attachments/{abstractId}/{category}")]
+        public IActionResult GetAttachments(int abstractId, int category) => Ok(_service.GetAttachments(abstractId, category));
+    }
+}

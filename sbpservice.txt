@@ -1,0 +1,63 @@
+using System.Collections.Generic;
+using SBPASystem.Models;
+using SBPASystem.BusinessLogic;
+
+namespace SBPASystem.Services
+{
+    public class SBPAService
+    {
+        private readonly SBPABusinessLogic _logic;
+
+        public SBPAService(SBPABusinessLogic logic)
+        {
+            _logic = logic;
+        }
+
+        // Service method that encapsulates the full business logic workflow.
+        public (bool Success, string Message, int Id) SaveAbstract(
+            MasterInfo abstractInfo,
+            string stateKeyName,
+            string actionKeyName,
+            List<Attachment> attachments,
+            List<Reviewer> reviewers,
+            List<ReviewCriteria> reviews)
+        {
+            return _logic.SaveAbstract(abstractInfo, stateKeyName, actionKeyName, attachments, reviewers, reviews);
+        }
+
+        // --- Service methods for all 11 stored procedures as requested ---
+
+        // Method for a direct insert/update operation
+        public (bool Success, string Message, int Id) InsertUpdateAbstract(MasterInfo abstractInfo)
+        {
+            return _logic.InsertUpdateAbstract(abstractInfo);
+        }
+
+        // Method to insert a reviewer
+        public void InsertReviewer(int abstractId, int reviewerId)
+        {
+            _logic.InsertReviewer(abstractId, reviewerId);
+        }
+
+        // Method to update review criteria
+        public void UpdateReviewCriteria(List<ReviewCriteria> reviews)
+        {
+            _logic.UpdateReviewCriteria(reviews);
+        }
+
+        // Method to update withdrawal status
+        public void UpdateWithdrawalStatus(int reviewId)
+        {
+            _logic.UpdateWithdrawalStatus(reviewId);
+        }
+
+        // GET methods remain as direct pass-throughs
+        public IEnumerable<TechArea> GetTechAreas() => _logic.GetTechAreas();
+        public IEnumerable<SubTechArea> GetSubTechAreas(int techAreaId) => _logic.GetSubTechAreas(techAreaId);
+        public IEnumerable<Commercialization> GetCommercializationList() => _logic.GetCommercializationList();
+        public IEnumerable<PatentInfo> GetPatentInfo() => _logic.GetPatentInfo();
+        public IEnumerable<MasterInfo> GetMasterInfo(int sbpaAbstractId, int mEmpId) => _logic.GetMasterInfo(sbpaAbstractId, mEmpId);
+        public IEnumerable<Reviewer> GetReviewers(int sbpaAbstractId, int category) => _logic.GetReviewers(sbpaAbstractId, category);
+        public IEnumerable<Attachment> GetAttachments(int sbpaAbstractId, int category) => _logic.GetAttachments(sbpaAbstractId, category);
+    }
+}

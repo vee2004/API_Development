@@ -1,0 +1,91 @@
+using System;
+using System.Collections.Generic;
+
+namespace SBPASystem.Models
+{
+    // Represents a technical area
+    public class TechArea
+    {
+        public int TechAreaID { get; set; }
+        public string Name { get; set; }
+    }
+
+    // Represents a sub-technical area related to a TechArea
+    public class SubTechArea
+    {
+        public int SubTechAreaID { get; set; }
+        public int TechAreaID { get; set; }
+        public string Name { get; set; }
+    }
+
+    // Represents a commercialization status
+    public class Commercialization
+    {
+        public int CID { get; set; }
+        public string CommercializationType { get; set; }
+    }
+
+    // Represents patent information
+    public class PatentInfo
+    {
+        public int PIID { get; set; }
+        public string PatentType { get; set; }
+    }
+
+    // Represents the main abstract submission record with all properties
+    public class MasterInfo
+    {
+        public int SBPAAbstractID { get; set; }
+        public int InitiatorEmpID { get; set; }
+        public string Title { get; set; }
+        public int TechAreaID { get; set; }
+        public int SubTechAreaID { get; set; }
+        public int CID { get; set; }
+        public int DevPeriod { get; set; }
+        public int PIID { get; set; }
+        public string ForumName { get; set; }
+        public DateTime AcceptanceDate { get; set; }
+        public int SRList { get; set; }
+        public string ExternalAwards { get; set; }
+        public int Category { get; set; }
+    }
+
+    // Represents a reviewer with all properties retrieved from the database
+    public class Reviewer
+    {
+        public int ReviewerID { get; set; }
+        public string Name { get; set; }
+        public string EID { get; set; }
+        public string ReviewStatus { get; set; }
+        public bool IsWithdrawn { get; set; }
+    }
+
+    // Represents an attachment to an abstract
+    public class Attachment
+    {
+        public int AttachmentID { get; set; }
+        public int SBPAAbstractID { get; set; }
+        public string FileName { get; set; }
+        public string FileUrl { get; set; }
+    }
+
+    // Represents a reviewer's assessment criteria
+    public class ReviewCriteria
+    {
+        public int ReviewCriteriaID { get; set; }
+        public int ReviewerID { get; set; }
+        public int Percentage { get; set; }
+        public string Remark { get; set; }
+    }
+
+    // DTO to correctly handle a single POST request body
+    public class SaveAbstractRequest
+    {
+        public MasterInfo AbstractInfo { get; set; }
+        public string StateKeyName { get; set; }
+        public string ActionKeyName { get; set; }
+        public List<Attachment> Attachments { get; set; }
+        public List<Reviewer> Reviewers { get; set; }
+        public List<ReviewCriteria> Reviews { get; set; }
+    }
+}
